@@ -1,6 +1,6 @@
 [project]
 name = "hair-vision-agent"
-version = "0.1.0"
+version = "0.1.1"
 description = "Specialized agent for hair style recommendations"
 authors = [{name = "Manolo Salsas", email = "manolez@gmail.com"}]
 readme = "README.md"
