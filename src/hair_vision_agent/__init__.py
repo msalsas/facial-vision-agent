@@ -1,9 +1,16 @@
+"""
+Hair Vision Agent - Facial and hair analysis using AI vision models.
+"""
+
 from .agent import HairVisionAgent
+from .llm_client import VisionLLMClient
+from .prompts import AnalysisPrompts
+from .utils import ImageUtils
 
-__all__ = ["HairVisionAgent"]
-
-try:
-    from importlib.metadata import version
-    __version__ = version("hair-vision-agent")
-except ImportError:
-    __version__ = "0.1.0-dev"
+__version__ = "1.0.0"
+__all__ = [
+    "HairVisionAgent",
+    "VisionLLMClient",
+    "AnalysisPrompts",
+    "ImageUtils"
+]

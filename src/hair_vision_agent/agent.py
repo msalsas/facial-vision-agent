@@ -1,10 +1,12 @@
 from agent_core_framework import BaseAgent, AgentTask, AgentResponse
 from typing import Dict, Any, Optional
-import base64
-import requests
-import json
 import os
+import base64
 import re
+import json
+from .llm_client import VisionLLMClient
+from .prompts import AnalysisPrompts
+from .utils import ImageUtils
 
 
 class HairVisionAgent(BaseAgent):
@@ -22,10 +24,14 @@ class HairVisionAgent(BaseAgent):
         ]
 
         self.api_key = openrouter_api_key or os.getenv("OPENROUTER_API_KEY")
-        self.base_url = "https://openrouter.ai/api/v1/chat/completions"
 
         if not self.api_key:
             raise ValueError("OpenRouter API key is required. Set OPENROUTER_API_KEY environment variable.")
+
+        # Initialize components
+        self.llm_client = VisionLLMClient(self.api_key)
+        self.prompts = AnalysisPrompts()
+        self.image_utils = ImageUtils()
 
     def process(self, task: AgentTask) -> AgentResponse:
         """
@@ -55,113 +61,20 @@ class HairVisionAgent(BaseAgent):
         """
         Build prompt focused on feature extraction.
         """
-        return """
-        Analyze this person's facial physiognomy and features in detail, including hair characteristics.
-
-        Focus on facial features: face shape, forehead, eyebrows, eyes, nose, cheeks, mouth, chin, jawline.
-
-        Provide DETAILED PROPORTION MEASUREMENTS:
-        - Face width to height ratio
-        - Forehead height to total face height ratio
-        - Eye width to face width ratio
-        - Inter-eye distance to face width ratio
-        - Nose width to face width ratio
-        - Nose height to face height ratio
-        - Mouth width to face width ratio
-        - Chin width to face width ratio
-        - Eye to nose distance ratio
-        - Nose to mouth distance ratio
-
-        Return as JSON:
-        {
-            "facial_analysis": {
-                "face_shape": "oval/round/square/heart/oblong",
-                "forehead": "high/medium/low",
-                "eyebrows": "thick/thin/ arched/straight",
-                "eyes": "large/small, round/almond shaped",
-                "nose": "straight/curved, large/small",
-                "cheeks": "high/prominent/flat",
-                "mouth": "full/thin, wide/narrow",
-                "chin": "pointed/rounded/square",
-                "jawline": "strong/soft/defined",
-                "facial_proportions": {
-                    "face_width_to_height_ratio": 0.0,
-                    "forehead_to_face_height_ratio": 0.0,
-                    "eye_width_to_face_width_ratio": 0.0,
-                    "inter_eye_to_face_width_ratio": 0.0,
-                    "nose_width_to_face_width_ratio": 0.0,
-                    "nose_height_to_face_height_ratio": 0.0,
-                    "mouth_width_to_face_width_ratio": 0.0,
-                    "chin_width_to_face_width_ratio": 0.0,
-                    "eye_to_nose_distance_ratio": 0.0,
-                    "nose_to_mouth_distance_ratio": 0.0
-                },
-                "prominent_features": ["feature1", "feature2", "feature3"]
-            },
-            "hair_analysis": {
-                "type": "straight/wavy/curly/coily",
-                "length": "short/medium/long",
-                "color": "color description",
-                "density": "thin/medium/thick",
-                "condition": "healthy/dry/damaged"
-            },
-            "confidence_metrics": {
-                "face_detection": 0.0,
-                "hair_analysis": 0.0,
-                "overall": 0.0
-            }
-        }
-        """
+        return self.prompts.get_comprehensive_analysis_prompt()
 
     def _call_vision_llm(self, base64_image: str, prompt: str) -> Dict[str, Any]:
         """
         Call vision-capable LLM for analysis.
         """
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        return self.llm_client.call_vision_llm(base64_image, prompt)
 
-        payload = {
-            "model": "meta-llama/llama-3.2-11b-vision-instruct",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
-                        }
-                    ]
-                }
-            ],
-            "max_tokens": 1500,
-            "temperature": 0.3
-        }
-
-        try:
-            response = requests.post(self.base_url, headers=headers, json=payload, timeout=30)
-            response.raise_for_status()
-
-            result = response.json()
-            content = result['choices'][0]['message']['content']
-
-            # Parse JSON response
-            parsed = self._extract_json(content)
-            if parsed is not None:
-                return parsed
-            else:
-                return self._get_fallback_analysis()
-
-        except Exception as e:
-            print(f"Vision LLM call failed: {e}")
-            return self._get_fallback_analysis()
+    def _validate_face_presence(self, base64_image: str) -> bool:
+        """
+        Validate that the image contains at least one face.
+        Returns True if face detected, False otherwise.
+        """
+        return self.llm_client.validate_face_presence(base64_image)
 
     def _get_fallback_analysis(self) -> Dict[str, Any]:
         """
@@ -223,73 +136,6 @@ class HairVisionAgent(BaseAgent):
             "does_recommendations": False  # Explicitly state no recommendations
         })
         return base_info
-
-    def _validate_face_presence(self, base64_image: str) -> bool:
-        """
-        Validate that the image contains at least one face.
-        Returns True if face detected, False otherwise.
-        """
-        prompt = """
-        Analyze this image and determine if it contains a human face.
-        
-        Return only a JSON object:
-        {
-            "face_detected": true/false,
-            "confidence": 0.0-1.0
-        }
-        
-        Be strict: only return true if you can clearly see a human face.
-        """
-
-        try:
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-
-            payload = {
-                "model": "meta-llama/llama-3.2-11b-vision-instruct",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64_image}"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                "max_tokens": 200,
-                "temperature": 0.1
-            }
-
-            response = requests.post(self.base_url, headers=headers, json=payload, timeout=15)
-            response.raise_for_status()
-
-            result = response.json()
-            content = result['choices'][0]['message']['content']
-
-            # Parse validation response
-            parsed = self._extract_json(content)
-            if parsed and isinstance(parsed, dict):
-                face_detected = parsed.get('face_detected', False)
-                confidence = parsed.get('confidence', 0.0)
-
-                # Require high confidence for face detection
-                return face_detected and confidence > 0.7
-
-            return False
-
-        except Exception as e:
-            print(f"Face validation failed: {e}")
-            return False
 
     def _process_image_with_validation(self, image_path: str, processing_function) -> AgentResponse:
         """
