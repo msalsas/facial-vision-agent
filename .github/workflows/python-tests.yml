@@ -36,9 +36,20 @@ jobs:
           git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
           git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
 
+      # --- NEW: checkout private dependency so we can install from local path ---
+      - name: Checkout private dependency
+        if: ${{ secrets.PERSONAL_ACCESS_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: msalsas/agent-core-framework
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          path: deps/agent-core-framework
+
       - name: Install test dependencies (dev extras)
         run: |
           python -m pip install --upgrade pip setuptools wheel
+          # Install private dependency from checked-out path to avoid git cloning during pip
+          if [ -d "deps/agent-core-framework" ]; then python -m pip install -e ./deps/agent-core-framework; fi
           # Install editable package with dev extras defined in pyproject.toml
           python -m pip install -e ".[dev]"
 
@@ -74,6 +85,15 @@ jobs:
           git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
           git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
 
+      # --- NEW: checkout private dependency for release job as well ---
+      - name: Checkout private dependency
+        if: ${{ secrets.PERSONAL_ACCESS_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: msalsas/agent-core-framework
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          path: deps/agent-core-framework
+
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel build
@@ -86,6 +106,8 @@ jobs:
         run: |
           export PYTHONPATH="${{ github.workspace }}/src:$PYTHONPATH"
           python -m pip install --upgrade pip
+          # If the private dep was checked out, install it first
+          if [ -d "deps/agent-core-framework" ]; then python -m pip install -e ./deps/agent-core-framework; fi
           python -m pip install -e ".[dev]"
           pytest -q --junitxml=pytest-results-release.xml
 
