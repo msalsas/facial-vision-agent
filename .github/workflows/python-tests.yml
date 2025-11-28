@@ -10,6 +10,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10']
@@ -30,15 +32,15 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
 
       - name: Configure git to use token for private deps
-        if: ${{ secrets.PERSONAL_ACCESS_TOKEN != '' }}
+        if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
         run: |
           # Replace SSH-style URLs with HTTPS+token so pip/git can fetch private repos
-          git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
-          git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
 
       # --- NEW: checkout private dependency so we can install from local path ---
       - name: Checkout private dependency
-        if: ${{ secrets.PERSONAL_ACCESS_TOKEN != '' }}
+        if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
         uses: actions/checkout@v4
         with:
           repository: msalsas/agent-core-framework
@@ -68,6 +70,8 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    env:
+      PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     needs: test
 
     steps:
@@ -80,14 +84,14 @@ jobs:
           python-version: 3.10
 
       - name: Configure git to use token for private deps
-        if: ${{ secrets.PERSONAL_ACCESS_TOKEN != '' }}
+        if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
         run: |
-          git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
-          git config --global url."https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
 
       # --- NEW: checkout private dependency for release job as well ---
       - name: Checkout private dependency
-        if: ${{ secrets.PERSONAL_ACCESS_TOKEN != '' }}
+        if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
         uses: actions/checkout@v4
         with:
           repository: msalsas/agent-core-framework
