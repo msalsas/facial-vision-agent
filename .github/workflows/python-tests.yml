@@ -38,14 +38,12 @@ jobs:
           git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
           git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
 
-      # --- NEW: checkout private dependency so we can install from local path ---
-      - name: Checkout private dependency
+      # --- NEW: clone private dependency via HTTPS using PAT ---
+      - name: Clone private dependency via HTTPS
         if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
-        uses: actions/checkout@v4
-        with:
-          repository: msalsas/agent-core-framework
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          path: deps/agent-core-framework
+        run: |
+          mkdir -p deps
+          git clone https://x-access-token:${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/msalsas/agent-core-framework.git deps/agent-core-framework
 
       - name: Install test dependencies (dev extras)
         run: |
@@ -89,14 +87,12 @@ jobs:
           git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
           git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
 
-      # --- NEW: checkout private dependency for release job as well ---
-      - name: Checkout private dependency
+      # --- NEW: clone private dependency via HTTPS for the release job ---
+      - name: Clone private dependency via HTTPS
         if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
-        uses: actions/checkout@v4
-        with:
-          repository: msalsas/agent-core-framework
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          path: deps/agent-core-framework
+        run: |
+          mkdir -p deps
+          git clone https://x-access-token:${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/msalsas/agent-core-framework.git deps/agent-core-framework
 
       - name: Install build dependencies
         run: |
