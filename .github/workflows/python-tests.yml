@@ -38,9 +38,27 @@ jobs:
           git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
           git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
 
-      # --- NEW: clone private dependency via HTTPS using PAT ---
-      - name: Clone private dependency via HTTPS
-        if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
+      # --- NEW: prefer deploy key SSH clone if secret provided, otherwise fallback to PAT HTTPS ---
+      - name: Setup SSH deploy key
+        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY_AGENT_CORE }}
+
+      - name: Ensure github host known (SSH)
+        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Clone private dependency via SSH (deploy key)
+        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
+        run: |
+          mkdir -p deps
+          git clone git@github.com:msalsas/agent-core-framework.git deps/agent-core-framework
+
+      - name: Clone private dependency via HTTPS (PAT fallback)
+        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE == '' && env.PERSONAL_ACCESS_TOKEN != '' }}
         run: |
           mkdir -p deps
           git clone https://x-access-token:${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/msalsas/agent-core-framework.git deps/agent-core-framework
@@ -87,9 +105,26 @@ jobs:
           git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
           git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
 
-      # --- NEW: clone private dependency via HTTPS for the release job ---
-      - name: Clone private dependency via HTTPS
-        if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
+      - name: Setup SSH deploy key
+        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY_AGENT_CORE }}
+
+      - name: Ensure github host known (SSH)
+        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Clone private dependency via SSH (deploy key)
+        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
+        run: |
+          mkdir -p deps
+          git clone git@github.com:msalsas/agent-core-framework.git deps/agent-core-framework
+
+      - name: Clone private dependency via HTTPS (PAT fallback)
+        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE == '' && env.PERSONAL_ACCESS_TOKEN != '' }}
         run: |
           mkdir -p deps
           git clone https://x-access-token:${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/msalsas/agent-core-framework.git deps/agent-core-framework
