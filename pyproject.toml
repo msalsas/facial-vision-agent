@@ -1,6 +1,6 @@
 [project]
 name = "facial-vision-agent"
-version = "0.2.2"
+version = "0.2.3"
 description = "Specialized agent for facial and hair analysis"
 authors = [{name = "Manolo Salsas", email = "manolez@gmail.com"}]
 readme = "README.md"
