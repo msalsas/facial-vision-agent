@@ -1,6 +1,6 @@
 import base64
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class ImageUtils:
@@ -21,7 +21,7 @@ class ImageUtils:
             return None
 
     @staticmethod
-    def validate_image_path(image_path: str) -> tuple[bool, Optional[str]]:
+    def validate_image_path(image_path: str) -> Tuple[bool, Optional[str]]:
         """
         Validate that an image path exists and is accessible.
         Returns (is_valid, error_message)
