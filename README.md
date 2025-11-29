@@ -1,5 +1,10 @@
 # Facial Vision Agent
 
+[![PyPI](https://img.shields.io/pypi/v/facial-vision-agent.svg)](https://pypi.org/project/facial-vision-agent/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/facial-vision-agent.svg)](https://pypi.org/project/facial-vision-agent/)
+[![CI](https://github.com/msalsas/facial-vision-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/msalsas/facial-vision-agent/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/msalsas/facial-vision-agent.svg)](https://github.com/msalsas/facial-vision-agent/blob/main/LICENSE)
+
 Facial Vision Agent is an AI-powered library for analyzing facial morphology and hair characteristics from images using vision models and vision-capable LLMs.
 
 This package focuses on visual feature extraction — it identifies facial proportions and prominent features and analyzes hair type, length, density and condition. It is designed to be used as a Python package and integrated into larger systems as an agent that processes image analysis tasks.
