@@ -39,3 +39,9 @@ jobs:
           name: dist
           path: dist
 
+      - name: Upload packaging template
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-metadata
+          path: packaging/agent-core-framework-metadata.ini
