@@ -10,8 +10,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10']
@@ -31,43 +29,11 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
 
-      - name: Configure git to use token for private deps
-        if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
-        run: |
-          # Replace SSH-style URLs with HTTPS+token so pip/git can fetch private repos
-          git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
-          git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
-
-      # --- NEW: prefer deploy key SSH clone if secret provided, otherwise fallback to PAT HTTPS ---
-      - name: Setup SSH deploy key
-        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
-        uses: webfactory/ssh-agent@v0.8.1
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_KEY_AGENT_CORE }}
-
-      - name: Ensure github host known (SSH)
-        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-      - name: Clone private dependency via SSH (deploy key)
-        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
-        run: |
-          mkdir -p deps
-          git clone git@github.com:msalsas/agent-core-framework.git deps/agent-core-framework
-
-      - name: Clone private dependency via HTTPS (PAT fallback)
-        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE == '' && env.PERSONAL_ACCESS_TOKEN != '' }}
-        run: |
-          mkdir -p deps
-          git clone https://x-access-token:${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/msalsas/agent-core-framework.git deps/agent-core-framework
-
       - name: Install test dependencies (dev extras)
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          # Install private dependency from checked-out path to avoid git cloning during pip
-          if [ -d "deps/agent-core-framework" ]; then python -m pip install -e ./deps/agent-core-framework; fi
+          # Install core dependency from PyPI instead of cloning private repo
+          python -m pip install 'agent-core-framework>=0.1.6'
           # Install editable package with dev extras defined in pyproject.toml
           python -m pip install -e ".[dev]"
 
@@ -86,8 +52,6 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    env:
-      PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     needs: test
 
     steps:
@@ -98,36 +62,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.10
-
-      - name: Configure git to use token for private deps
-        if: ${{ env.PERSONAL_ACCESS_TOKEN != '' }}
-        run: |
-          git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "git@github.com:"
-          git config --global url."https://${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
-
-      - name: Setup SSH deploy key
-        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
-        uses: webfactory/ssh-agent@v0.8.1
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_KEY_AGENT_CORE }}
-
-      - name: Ensure github host known (SSH)
-        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-      - name: Clone private dependency via SSH (deploy key)
-        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE != '' }}
-        run: |
-          mkdir -p deps
-          git clone git@github.com:msalsas/agent-core-framework.git deps/agent-core-framework
-
-      - name: Clone private dependency via HTTPS (PAT fallback)
-        if: ${{ secrets.DEPLOY_KEY_AGENT_CORE == '' && env.PERSONAL_ACCESS_TOKEN != '' }}
-        run: |
-          mkdir -p deps
-          git clone https://x-access-token:${{ env.PERSONAL_ACCESS_TOKEN }}@github.com/msalsas/agent-core-framework.git deps/agent-core-framework
 
       - name: Install build dependencies
         run: |
@@ -141,8 +75,7 @@ jobs:
         run: |
           export PYTHONPATH="${{ github.workspace }}/src:$PYTHONPATH"
           python -m pip install --upgrade pip
-          # If the private dep was checked out, install it first
-          if [ -d "deps/agent-core-framework" ]; then python -m pip install -e ./deps/agent-core-framework; fi
+          python -m pip install 'agent-core-framework>=0.1.6'
           python -m pip install -e ".[dev]"
           pytest -q --junitxml=pytest-results-release.xml
 
