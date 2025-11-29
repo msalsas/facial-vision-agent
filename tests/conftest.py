@@ -2,7 +2,7 @@ import pytest
 import requests
 from requests import exceptions as req_exceptions
 
-from hair_vision_agent.llm_client import VisionLLMClient
+from facial_vision_agent.llm_client import VisionLLMClient
 
 
 class DummyResponse:
@@ -61,4 +61,3 @@ def network_error_post():
     def _raise(*args, **kwargs):
         raise req_exceptions.RequestException("network error")
     return _raise
-

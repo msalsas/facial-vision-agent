@@ -1,6 +1,6 @@
-# Hair Vision Agent
+# Facial Vision Agent
 
-AI-powered agent for analyzing hair and facial features from images. Specialized in visual feature extraction only.
+AI-powered agent for analyzing facial features and hair from images. Specialized in visual feature extraction only.
 
 ## Features
 
@@ -12,15 +12,15 @@ AI-powered agent for analyzing hair and facial features from images. Specialized
 ## Installation
 
 ```bash
-pip install hair-vision-agent
+pip install facial-vision-agent
 ```
 
 ## Usage
 
 ```python
-from hair_vision_agent import HairVisionAgent
+from facial_vision_agent import FacialVisionAgent
 
-agent = HairVisionAgent(openrouter_api_key="your_key")
+agent = FacialVisionAgent(openrouter_api_key="your_key")
 
 # Comprehensive analysis
 response = agent.process(AgentTask(

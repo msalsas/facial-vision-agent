@@ -42,3 +42,4 @@ class ImageUtils:
             return False, f"Unsupported image format: {ext}"
 
         return True, None
+

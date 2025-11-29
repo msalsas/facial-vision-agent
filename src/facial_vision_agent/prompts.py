@@ -85,3 +85,4 @@ class AnalysisPrompts:
         
         Be strict: only return true if you can clearly see a human face.
         """
+

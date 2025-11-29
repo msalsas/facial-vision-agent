@@ -1,13 +1,13 @@
-from hair_vision_agent import HairVisionAgent
+from facial_vision_agent import FacialVisionAgent
 from agent_core_framework import AgentTask
 import builtins
 
 
 def test_agent_initialization():
     """Test basic agent initialization"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
-    assert agent.name == "HairVision"
+    assert agent.name == "FacialVision"
     assert agent.version == "1.0.0"
     assert agent.api_key == "test_api_key"
     print("✅ Agent initialization test passed")
@@ -15,7 +15,7 @@ def test_agent_initialization():
 
 def test_supported_tasks():
     """Test that agent only supports analysis tasks"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     expected_tasks = ["analyze_image", "detect_facial_features", "analyze_hair_characteristics"]
     for task in expected_tasks:
@@ -31,7 +31,7 @@ def test_supported_tasks():
 
 def test_unsupported_task():
     """Test that unsupported tasks return error"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     task = AgentTask(type="recommend_styles", payload={})
     response = agent.process(task)
@@ -43,7 +43,7 @@ def test_unsupported_task():
 
 def test_missing_image_path():
     """Test error when image path is missing"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     task = AgentTask(type="analyze_image", payload={})
     response = agent.process(task)
@@ -55,7 +55,7 @@ def test_missing_image_path():
 
 def test_prompt_content():
     """Test that prompt focuses on facial physiognomy"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     prompt = agent._build_analysis_prompt()
 
@@ -75,7 +75,7 @@ def test_prompt_content():
 
 def test_fallback_analysis():
     """Test fallback analysis structure"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     fallback = agent._get_fallback_analysis()
 
@@ -92,11 +92,11 @@ def test_fallback_analysis():
 
 def test_agent_info():
     """Test agent information"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     info = agent.get_info()
 
-    assert info["name"] == "HairVision"
+    assert info["name"] == "FacialVision"
     assert info["does_recommendations"] is False
     assert info["output_type"] == "feature_extraction"
     print("✅ Agent info test passed")
@@ -105,7 +105,7 @@ def test_agent_info():
 def test_llm_call_mock():
     """Test LLM call with simple mock - skips face validation"""
     # Create agent and temporarily disable face validation
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     # Temporarily replace face validation with a no-op
     original_validate = agent._validate_face_presence
@@ -156,7 +156,7 @@ def test_llm_call_mock():
 
 def test_extract_json():
     """Test JSON extraction from text"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     # Test direct JSON
     json_text = '{"test": "value"}'
@@ -179,7 +179,7 @@ def test_extract_json():
 
 def test_temperature_setting():
     """Test that temperature is set correctly"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     # Check that the method has the temperature parameter
     assert hasattr(agent, '_call_vision_llm')
@@ -189,7 +189,7 @@ def test_temperature_setting():
 
 def test_fallback_on_json_error():
     """Test that fallback is used when JSON parsing fails"""
-    agent = HairVisionAgent("test_api_key")
+    agent = FacialVisionAgent("test_api_key")
 
     original_extract = agent._extract_json
     agent._extract_json = lambda text: None
@@ -205,7 +205,7 @@ def test_fallback_on_json_error():
 
 def run_all_tests():
     """Run all simple tests"""
-    print("🚀 Running simple HairVisionAgent tests...\n")
+    print("🚀 Running simple FacialVisionAgent tests...\n")
 
     tests = [
         test_agent_initialization,
