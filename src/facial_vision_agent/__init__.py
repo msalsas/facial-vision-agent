@@ -7,10 +7,15 @@ from .llm_client import VisionLLMClient
 from .prompts import AnalysisPrompts
 from .utils import ImageUtils
 
-__version__ = "1.0.1"
 __all__ = [
     "FacialVisionAgent",
     "VisionLLMClient",
     "AnalysisPrompts",
     "ImageUtils",
 ]
+
+try:
+    from importlib.metadata import version
+    __version__ = version("facial-vision-agent")
+except ImportError:
+    __version__ = "0.1.0-dev"
