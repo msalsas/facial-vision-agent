@@ -1,47 +1,31 @@
-name: Publish to PyPI
+name: Publish Python Package
 
 on:
   push:
-    tags: ['v*.*.*']
-  workflow_dispatch:
+    tags:
+      - 'v*.*.*'
 
 jobs:
-  publish:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.x'
 
-      - name: Install build tools
+      - name: Upgrade pip and build tools
         run: |
-          python -m pip install --upgrade pip build twine
+          python -m pip install --upgrade pip setuptools wheel build twine
 
-      - name: Build distributions
-        run: |
-          python -m build --sdist --wheel
+      - name: Build distribution
+        run: python -m build
 
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          python -m twine upload dist/*
-
-      - name: Upload artifacts (dist)
-        if: always()
-        uses: actions/upload-artifact@v4
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          name: dist
-          path: dist
-
-      - name: Upload packaging template
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: packaging-metadata
-          path: packaging/agent-core-framework-metadata.ini
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
