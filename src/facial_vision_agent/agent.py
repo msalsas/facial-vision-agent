@@ -113,18 +113,18 @@ class FacialVisionAgent(BaseAgent):
         )
         return base_info
 
-    def _process_image_with_validation(self, image_path: str, processing_function) -> AgentResponse:
-        if not image_path:
+    def _process_image_with_validation(self, image_path: Optional[str] = None, base64_image: Optional[str] = None, processing_function=None) -> AgentResponse:
+        if not image_path and not base64_image:
             return AgentResponse(success=False, error="Image path is required", agent_name=self.name)
 
-        if not os.path.exists(image_path):
-            return AgentResponse(
-                success=False, error=f"Image file not found: {image_path}", agent_name=self.name
-            )
-
         try:
-            with open(image_path, "rb") as image_file:
-                base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+            if not base64_image:
+                if not os.path.exists(image_path):
+                    return AgentResponse(success=False, error=f"Image file not found: {image_path}", agent_name=self.name)
+
+                base64_image = self.image_utils.encode_image_to_base64(image_path)
+                if not base64_image:
+                    return AgentResponse(success=False, error=f"Failed to encode image: {image_path}", agent_name=self.name)
 
             if not self._validate_face_presence(base64_image):
                 return AgentResponse(
@@ -137,7 +137,9 @@ class FacialVisionAgent(BaseAgent):
             return AgentResponse(success=False, error=f"Image processing failed: {str(e)}", agent_name=self.name)
 
     def _analyze_image_comprehensive(self, payload: Dict[str, Any], task_type: str) -> AgentResponse:
+        # Support either 'image_path' or 'base64_image' in the payload
         image_path = payload.get("image_path")
+        base64_image = payload.get("base64_image")
 
         def process_comprehensive_analysis(base64_image: str) -> AgentResponse:
             prompt = self._build_analysis_prompt()
@@ -166,4 +168,4 @@ class FacialVisionAgent(BaseAgent):
                     agent_name=self.name,
                 )
 
-        return self._process_image_with_validation(image_path, process_comprehensive_analysis)
+        return self._process_image_with_validation(image_path=image_path, base64_image=base64_image, processing_function=process_comprehensive_analysis)

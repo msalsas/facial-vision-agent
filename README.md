@@ -44,6 +44,32 @@ response = agent.process(task)
 print(response.data)
 ```
 
+## Payload formats
+
+The agent accepts two ways to provide the image in the `AgentTask` payload:
+
+- `image_path`: filesystem path to an image file (e.g. `"photo.jpg"`).
+- `base64_image`: a Base64-encoded string of the image (e.g. when the image is uploaded from a frontend).
+
+Priority and behavior:
+- If `base64_image` is present in the payload, the agent will use that string directly.
+- If only `image_path` is provided, the agent will read the file and convert it to Base64 internally.
+- If neither field is present, the agent will return an error (the current tests expect the message: "Image path is required").
+
+Examples:
+
+```python
+# Using filesystem path (legacy)
+task = AgentTask(type="analyze_image", payload={"image_path": "photo.jpg"})
+
+# Using Base64 directly
+task = AgentTask(type="analyze_image", payload={"base64_image": "<BASE64_STRING_HERE>"})
+```
+
+Note on Data URIs:
+- We recommend sending only the Base64 portion (without the `data:image/…;base64,` prefix). If you send a full data URI, strip the prefix before calling the agent.
+
+
 ## Testing
 
 Run the test suite locally:
@@ -78,4 +104,3 @@ Contributions are welcome. Please open an issue or a pull request. Follow the ex
 ## License
 
 MIT — see the `LICENSE` file for details.
-
