@@ -1,8 +1,10 @@
+from time import sleep
 from typing import Dict, Any, Optional
 import requests
 import json
 import re
 import logging
+from .prompts import AnalysisPrompts
 from requests import Session, exceptions as req_exceptions
 
 logger = logging.getLogger(__name__)
@@ -14,6 +16,7 @@ class VisionLLMClient:
     def __init__(self, api_key: str, base_url: str = "https://openrouter.ai/api/v1/chat/completions"):
         self.api_key = api_key
         self.base_url = base_url
+        self.prompts = AnalysisPrompts()
         # Reuse a session for connection pooling and consistent headers
         self.session: Session = requests.Session()
         self.session.headers.update({
@@ -21,53 +24,78 @@ class VisionLLMClient:
             "Content-Type": "application/json",
         })
 
-    def call_vision_llm(self, base64_image: str, prompt: str, model: str = "meta-llama/llama-3.2-11b-vision-instruct") -> Dict[str, Any]:
+    def call_vision_llm(self, base64_image: str, model: str = "meta-llama/llama-3.2-11b-vision-instruct") -> Dict[str, Any]:
         """
         Call vision-capable LLM for analysis.
         """
+        prompt = self.prompts.get_comprehensive_analysis_prompt()
+        system_prompt = self.prompts.get_comprehensive_analysis_system_prompt()
+
+        messages = [
+            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+            {"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]},
+        ]
+
         payload = {
             "model": model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                    ]
-                }
-            ],
+            "messages": messages,
             "max_tokens": 1500,
-            "temperature": 0.3,
+            "temperature": 0.0,
         }
 
         try:
             result = self._post(payload, timeout=30)
             if not result:
-                return self._get_fallback_analysis()
+                raise ValueError("No result returned from LLM")
 
             content = self._safe_get_content(result)
             if not content:
-                return self._get_fallback_analysis()
+                raise ValueError("No content found in the result")
 
+            logger.debug("call_vision_llm: raw content=%s", content)
             parsed = self._extract_json(content)
             if parsed is not None:
                 return parsed
-            return self._get_fallback_analysis()
+
+            logger.warning("call_vision_llm: initial response had no JSON, attempting one repair pass")
+            repair_prompt = self.prompts.get_comprehensive_analysis_retry_prompt()
+
+            repair_messages = [
+                {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+                {"role": "assistant", "content": [{"type": "text", "text": str(content)}]},
+                {"role": "user", "content": [{"type": "text", "text": repair_prompt}]},
+            ]
+
+            repair_payload = {
+                "model": model,
+                "messages": repair_messages,
+                "max_tokens": 1000,
+                "temperature": 0.0,
+            }
+
+            repair_result = self._post(repair_payload, timeout=20)
+            if not repair_result:
+                raise ValueError("No result returned from LLM on repair attempt")
+
+            repair_content = self._safe_get_content(repair_result)
+            logger.debug("call_vision_llm: repair raw content=%s", repair_content)
+            parsed = self._extract_json(repair_content)
+            if parsed is not None:
+                return parsed
+
+            raise ValueError("Parsed content is None after repair attempt")
 
         except Exception:
             logger.exception("Vision LLM call failed")
-            return self._get_fallback_analysis()
+            raise
 
-    def validate_face_presence(self, base64_image: str) -> bool:
+    def validate_face_presence(self, base64_image: str, retry: int = 0) -> bool:
         """
-        Validate that the image contains at least one face.
+        Validate that the image contains at least one face. The prompt now asks the LLM
+        to reply with a single character: 'Y' (yes) if a face is present, or 'N' (no) if not.
+        The LLM is instructed to apply a fixed internal confidence threshold of 0.7.
         """
-        prompt = (
-            "Analyze this image and determine if it contains a human face.\n\n"
-            "Return only a JSON object:\n"
-            "{\n    \"face_detected\": true/false,\n    \"confidence\": 0.0-1.0\n}\n\n"
-            "Be strict: only return true if you can clearly see a human face."
-        )
+        prompt = self.prompts.get_face_validation_prompt()
 
         payload = {
             "model": "meta-llama/llama-3.2-11b-vision-instruct",
@@ -80,30 +108,35 @@ class VisionLLMClient:
                     ],
                 }
             ],
-            "max_tokens": 200,
-            "temperature": 0.1,
+            "max_tokens": 1,
+            "temperature": 0.0,
         }
 
         try:
             result = self._post(payload, timeout=15)
+
             if not result:
+                logger.debug("validate_face_presence: no result from _post")
                 return False
 
             content = self._safe_get_content(result)
+
+            logger.debug("validate_face_presence - extracted content: %r", content)
             if not content:
+                logger.debug("validate_face_presence: empty content, returning False")
                 return False
 
-            parsed = self._extract_json(content)
-            if parsed and isinstance(parsed, dict):
-                face_detected = parsed.get('face_detected', False)
-                confidence = parsed.get('confidence', 0.0)
-                try:
-                    confidence = float(confidence)
-                except Exception:
-                    confidence = 0.0
-                return bool(face_detected) and confidence > 0.7
-
-            return False
+            normalized = str(content).strip().lower()
+            if normalized[0] == 'y':
+                return True
+            elif normalized == 'safe':
+                sleep(1)
+                if retry > 2:
+                    logger.debug("validate_face_presence: exceeded max retries on 'safe' response, returning False")
+                    return False
+                return self.validate_face_presence(base64_image, ++retry)
+            else:
+                return False
 
         except Exception:
             logger.exception("Face validation failed")
@@ -165,44 +198,64 @@ class VisionLLMClient:
         """
         if not isinstance(text, str):
             return None
-        # Non-greedy match for first JSON object
-        json_match = re.search(r'(\{.*?\})', text, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group(1))
-            except json.JSONDecodeError:
-                logger.debug('Regex-extracted JSON failed to decode')
+
+        cleaned = re.sub(r"```(?:json)?\n?", "", text, flags=re.IGNORECASE)
+        cleaned = re.sub(r"```\s*$", "", cleaned, flags=re.MULTILINE)
+        cleaned = cleaned.strip()
+        logger.debug("_extract_json: cleaned text=%s", cleaned)
+
+        length = len(cleaned)
+        open_chars = {'{': '}', '[': ']'}
+
         try:
-            return json.loads(text)
+            return json.loads(cleaned)
         except json.JSONDecodeError:
-            logger.debug('Direct JSON load failed')
-            return None
+            pass
 
-    def _get_fallback_analysis(self) -> Dict[str, Any]:
-        """
-        Fallback analysis when LLM fails.
-        """
-        return {
-            "facial_analysis": {
-                "face_shape": "oval",
-                "facial_proportions": {
-                    "width_height_ratio": 0.75,
-                    "jawline_strength": "medium",
-                    "forehead_height": "medium"
-                },
-                "prominent_features": ["balanced_proportions"]
-            },
-            "hair_analysis": {
-                "type": "straight",
-                "length": "medium",
-                "color": "brown",
-                "density": "medium",
-                "condition": "healthy"
-            },
-            "confidence_metrics": {
-                "face_detection": 0.3,
-                "hair_analysis": 0.3,
-                "overall": 0.3
-            }
-        }
+        for start_idx, ch in enumerate(cleaned):
+            if ch not in open_chars:
+                continue
+            stack = [ch]
+            for i in range(start_idx + 1, length):
+                c = cleaned[i]
+                if c == '"' or c == "'":
+                    quote = c
+                    j = i + 1
+                    while j < length:
+                        if cleaned[j] == '\\':
+                            j += 2
+                            continue
+                        if cleaned[j] == quote:
+                            break
+                        j += 1
+                    i = j
+                    continue
+                if c in open_chars:
+                    stack.append(c)
+                elif c in open_chars.values():
+                    if not stack:
+                        break
+                    last = stack[-1]
+                    if open_chars.get(last) == c:
+                        stack.pop()
+                    else:
+                        stack.pop()
+                if not stack:
+                    candidate = cleaned[start_idx:i + 1]
+                    candidate = candidate.strip()
+                    try:
+                        parsed = json.loads(candidate)
+                        logger.debug("_extract_json: successfully parsed candidate starting at %d", start_idx)
+                        return parsed
+                    except json.JSONDecodeError:
+                        break
 
+        if "'" in cleaned and '"' not in cleaned:
+            coerced = cleaned.replace("'", '"')
+            try:
+                return json.loads(coerced)
+            except json.JSONDecodeError:
+                logger.debug("_extract_json: coercion with single->double quotes failed")
+
+        logger.debug('_extract_json: No parsable JSON object found in text')
+        return None

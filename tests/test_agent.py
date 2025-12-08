@@ -57,37 +57,21 @@ def test_prompt_content():
     """Test that prompt focuses on facial physiognomy"""
     agent = FacialVisionAgent("test_api_key")
 
-    prompt = agent._build_analysis_prompt()
+    prompt = agent.llm_client.prompts.get_comprehensive_analysis_prompt()
+    system_prompt = agent.llm_client.prompts.get_comprehensive_analysis_system_prompt()
 
     # Check critical instructions
     assert "facial physiognomy" in prompt
-    assert "facial features" in prompt
-    assert "forehead" in prompt
-    assert "eyebrows" in prompt
-    assert "eyes" in prompt
-    assert "nose" in prompt
-    assert "cheeks" in prompt
-    assert "mouth" in prompt
-    assert "chin" in prompt
-    assert "jawline" in prompt
+    assert "features" in prompt
+    assert "forehead" in system_prompt
+    assert "eyebrows" in system_prompt
+    assert "eyes" in system_prompt
+    assert "nose" in system_prompt
+    assert "cheeks" in system_prompt
+    assert "mouth" in system_prompt
+    assert "chin" in system_prompt
+    assert "jawline" in system_prompt
     print("✅ Prompt content test passed")
-
-
-def test_fallback_analysis():
-    """Test fallback analysis structure"""
-    agent = FacialVisionAgent("test_api_key")
-
-    fallback = agent._get_fallback_analysis()
-
-    # Check structure
-    assert "facial_analysis" in fallback
-    assert "hair_analysis" in fallback
-    assert "confidence_metrics" in fallback
-
-    # Check no recommendations
-    assert "recommendations" not in fallback
-    assert "style_suggestions" not in fallback
-    print("✅ Fallback analysis test passed")
 
 
 def test_agent_info():
@@ -112,7 +96,7 @@ def test_llm_call_mock():
     agent._validate_face_presence = lambda x: True
 
     # Mock simple success response
-    def mock_llm_call(base64_image, prompt):
+    def mock_llm_call(base64_image):
         return {
             "facial_analysis": {"face_shape": "oval"},
             "hair_analysis": {"type": "wavy"},
@@ -187,22 +171,6 @@ def test_temperature_setting():
     print("✅ Temperature setting test passed")
 
 
-def test_fallback_on_json_error():
-    """Test that fallback is used when JSON parsing fails"""
-    agent = FacialVisionAgent("test_api_key")
-
-    original_extract = agent._extract_json
-    agent._extract_json = lambda text: None
-
-    try:
-        fallback = agent._get_fallback_analysis()
-        assert "facial_analysis" in fallback
-        print("✅ Fallback on JSON error test passed")
-
-    finally:
-        agent._extract_json = original_extract
-
-
 def run_all_tests():
     """Run all simple tests"""
     print("🚀 Running simple FacialVisionAgent tests...\n")
@@ -213,12 +181,10 @@ def run_all_tests():
         test_unsupported_task,
         test_missing_image_path,
         test_prompt_content,
-        test_fallback_analysis,
         test_agent_info,
         test_llm_call_mock,
         test_extract_json,
         test_temperature_setting,
-        test_fallback_on_json_error,
     ]
 
     passed = 0

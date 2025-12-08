@@ -10,7 +10,7 @@ def test_accepts_base64_image_payload():
     agent._validate_face_presence = lambda x: True
 
     original_llm = agent._call_vision_llm
-    agent._call_vision_llm = lambda base64_image, prompt: {
+    agent._call_vision_llm = lambda base64_image: {
         "facial_analysis": {"face_shape": "round"},
         "hair_analysis": {"type": "curly"},
         "confidence_metrics": {"overall": 0.85},
@@ -43,4 +43,3 @@ def test_base64_face_validation_fail():
         assert "No human face detected" in response.error
     finally:
         agent._validate_face_presence = original_validate
-

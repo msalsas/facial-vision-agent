@@ -7,28 +7,19 @@ class AnalysisPrompts:
     """Collection of prompt templates for different analysis types."""
 
     @staticmethod
-    def get_comprehensive_analysis_prompt() -> str:
-        """
-        Get the comprehensive facial and hair analysis prompt.
-        """
+    def get_face_validation_prompt() -> str:
         return """
-        Analyze this person's facial physiognomy and features in detail, including hair characteristics.
+        Analyze this image and determine if it contains a human face.
+        Respond with either 'Y' or 'N'.
+        Return only the letter; do NOT add other explanation.
+        """
 
-        Focus on facial features: face shape, forehead, eyebrows, eyes, nose, cheeks, mouth, chin, jawline.
-
-        Provide DETAILED PROPORTION MEASUREMENTS:
-        - Face width to height ratio
-        - Forehead height to total face height ratio
-        - Eye width to face width ratio
-        - Inter-eye distance to face width ratio
-        - Nose width to face width ratio
-        - Nose height to face height ratio
-        - Mouth width to face width ratio
-        - Chin width to face width ratio
-        - Eye to nose distance ratio
-        - Nose to mouth distance ratio
-
-        Return as JSON:
+    @staticmethod
+    def get_comprehensive_analysis_system_prompt() -> str:
+        return """"
+        You are an assistant that MUST reply with a single JSON object only,\n
+        and nothing else (no explanation, no markdown/code fences).\n
+        The JSON MUST follow this minimal schema:\n
         {
             "facial_analysis": {
                 "face_shape": "oval/round/square/heart/oblong",
@@ -67,22 +58,22 @@ class AnalysisPrompts:
                 "overall": 0.0
             }
         }
+        All values must be set. Do not leave any fields empty.
+        If you cannot produce valid JSON, return an empty JSON object: {}
         """
 
     @staticmethod
-    def get_face_validation_prompt() -> str:
-        """
-        Get the face validation prompt.
-        """
+    def get_comprehensive_analysis_prompt() -> str:
         return """
-        Analyze this image and determine if it contains a human face.
-        
-        Return only a JSON object:
-        {
-            "face_detected": true/false,
-            "confidence": 0.0-1.0
-        }
-        
-        Be strict: only return true if you can clearly see a human face.
+        Analyze this person's facial physiognomy and features in detail, including hair characteristics.
+
+        Return ONLY a JSON object with the system prompt schema provided.
+        """
+
+    @staticmethod
+    def get_comprehensive_analysis_retry_prompt() -> str:
+        return """
+        Extract and RETURN ONLY the single JSON object that was embedded in your previous reply."
+        Do NOT add any explanations or extra text. If there is no JSON, return {}.
         """
 

@@ -95,7 +95,7 @@ def test_call_vision_llm_parses_json_from_content():
     original_post = client._post
     client._post = lambda payload, timeout: payload_response
     try:
-        res = client.call_vision_llm(base64_image="xxx", prompt="analyze")
+        res = client.call_vision_llm(base64_image="xxx")
         assert isinstance(res, dict)
         assert res.get("facial_analysis", {}).get("face_shape") == "oval"
     finally:
@@ -105,8 +105,7 @@ def test_call_vision_llm_parses_json_from_content():
 def test_validate_face_presence_true_and_false():
     client = make_client()
 
-    # True case: JSON present in message content
-    true_resp = {"choices": [{"message": {"content": 'Here is result {"face_detected": true, "confidence": 0.9} end'}}]}
+    true_resp = {"choices": [{"message": {"content": 'Y'}}]}
     original_post = client._post
     client._post = lambda payload, timeout: true_resp
     try:
@@ -114,17 +113,8 @@ def test_validate_face_presence_true_and_false():
     finally:
         client._post = original_post
 
-    # False case: low confidence
-    false_resp = {"choices": [{"message": {"content": '{"face_detected": true, "confidence": 0.4}'}}]}
+    false_resp = {"choices": [{"message": {"content": 'N'}}]}
     client._post = lambda payload, timeout: false_resp
-    try:
-        assert client.validate_face_presence("xxx") is False
-    finally:
-        client._post = original_post
-
-    # False case: no face_detected
-    noface_resp = {"choices": [{"message": {"content": '{"face_detected": false, "confidence": 0.9}'}}]}
-    client._post = lambda payload, timeout: noface_resp
     try:
         assert client.validate_face_presence("xxx") is False
     finally:

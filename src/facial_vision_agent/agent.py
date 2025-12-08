@@ -5,8 +5,8 @@ import base64
 import re
 import json
 from .llm_client import VisionLLMClient
-from .prompts import AnalysisPrompts
 from .utils import ImageUtils
+import logging
 
 
 class FacialVisionAgent(BaseAgent):
@@ -32,8 +32,8 @@ class FacialVisionAgent(BaseAgent):
 
         # Initialize components
         self.llm_client = VisionLLMClient(self.api_key)
-        self.prompts = AnalysisPrompts()
         self.image_utils = ImageUtils()
+        self.logger = logging.getLogger(__name__)
 
     def process(self, task: AgentTask) -> AgentResponse:
         """Process analysis tasks. Only performs visual analysis."""
@@ -55,35 +55,11 @@ class FacialVisionAgent(BaseAgent):
                 success=False, error=f"Vision analysis error: {str(e)}", agent_name=self.name
             )
 
-    def _build_analysis_prompt(self) -> str:
-        return self.prompts.get_comprehensive_analysis_prompt()
-
-    def _call_vision_llm(self, base64_image: str, prompt: str) -> Dict[str, Any]:
-        return self.llm_client.call_vision_llm(base64_image, prompt)
+    def _call_vision_llm(self, base64_image: str) -> Dict[str, Any]:
+        return self.llm_client.call_vision_llm(base64_image)
 
     def _validate_face_presence(self, base64_image: str) -> bool:
         return self.llm_client.validate_face_presence(base64_image)
-
-    def _get_fallback_analysis(self) -> Dict[str, Any]:
-        return {
-            "facial_analysis": {
-                "face_shape": "oval",
-                "facial_proportions": {
-                    "width_height_ratio": 0.75,
-                    "jawline_strength": "medium",
-                    "forehead_height": "medium",
-                },
-                "prominent_features": ["balanced_proportions"],
-            },
-            "hair_analysis": {
-                "type": "straight",
-                "length": "medium",
-                "color": "brown",
-                "density": "medium",
-                "condition": "healthy",
-            },
-            "confidence_metrics": {"face_detection": 0.3, "hair_analysis": 0.3, "overall": 0.3},
-        }
 
     def _extract_json(self, text: str) -> Optional[Dict[str, Any]]:
         # Try to find JSON object in the text
@@ -142,8 +118,11 @@ class FacialVisionAgent(BaseAgent):
         base64_image = payload.get("base64_image")
 
         def process_comprehensive_analysis(base64_image: str) -> AgentResponse:
-            prompt = self._build_analysis_prompt()
-            analysis_result = self._call_vision_llm(base64_image, prompt)
+            try:
+                analysis_result = self._call_vision_llm(base64_image)
+            except Exception as e:
+                # Surface a clear error to the caller when LLM analysis fails
+                return AgentResponse(success=False, error=f"Vision LLM analysis failed: {str(e)}", agent_name=self.name)
 
             if task_type == "analyze_image":
                 return AgentResponse(
