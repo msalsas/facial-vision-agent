@@ -16,15 +16,14 @@ class AnalysisPrompts:
 
     @staticmethod
     def get_comprehensive_analysis_system_prompt() -> str:
-        return """"
-        You are an assistant that MUST reply with a single JSON object only,\n
-        and nothing else (no explanation, no markdown/code fences).\n
-        The JSON MUST follow this minimal schema:\n
+        return """
+        You are an assistant that MUST reply with a single JSON object only, and nothing else (no explanation, no markdown/code fences).
+        The JSON MUST follow this minimal schema:
         {
             "facial_analysis": {
                 "face_shape": "oval/round/square/heart/oblong",
                 "forehead": "high/medium/low",
-                "eyebrows": "thick/thin/ arched/straight",
+                "eyebrows": "thick/thin/arched/straight",
                 "eyes": "large/small, round/almond shaped",
                 "nose": "straight/curved, large/small",
                 "cheeks": "high/prominent/flat",
@@ -59,6 +58,7 @@ class AnalysisPrompts:
             }
         }
         All values must be set. Do not leave any fields empty.
+        IMPORTANT: Do NOT return a JSON array or multiple JSON objects. If you would otherwise return multiple items, choose the single best representation and return exactly one JSON object. The response MUST start with '{' and end with '}'.
         If you cannot produce valid JSON, return an empty JSON object: {}
         """
 
@@ -67,13 +67,12 @@ class AnalysisPrompts:
         return """
         Analyze this person's facial physiognomy and features in detail, including hair characteristics.
 
-        Return ONLY a JSON object with the system prompt schema provided.
+        Return ONLY a single JSON object with the system prompt schema provided.
         """
 
     @staticmethod
     def get_comprehensive_analysis_retry_prompt() -> str:
         return """
-        Extract and RETURN ONLY the single JSON object that was embedded in your previous reply."
+        Extract and RETURN ONLY the single JSON object that was embedded in your previous reply.
         Do NOT add any explanations or extra text. If there is no JSON, return {}.
         """
-

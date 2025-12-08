@@ -204,58 +204,73 @@ class VisionLLMClient:
         cleaned = cleaned.strip()
         logger.debug("_extract_json: cleaned text=%s", cleaned)
 
-        length = len(cleaned)
-        open_chars = {'{': '}', '[': ']'}
-
         try:
-            return json.loads(cleaned)
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, dict):
+                return parsed
+            return None
         except json.JSONDecodeError:
             pass
 
+        length = len(cleaned)
+        open_chars = {'{': '}', '[': ']'}
+
         for start_idx, ch in enumerate(cleaned):
-            if ch not in open_chars:
+            if ch != '{':
                 continue
             stack = [ch]
-            for i in range(start_idx + 1, length):
+            i = start_idx + 1
+            while i < length and stack:
                 c = cleaned[i]
-                if c == '"' or c == "'":
-                    quote = c
-                    j = i + 1
-                    while j < length:
-                        if cleaned[j] == '\\':
-                            j += 2
+                # Skip over double-quoted strings
+                if c == '"':
+                    i += 1
+                    while i < length:
+                        if cleaned[i] == '\\':
+                            i += 2
                             continue
-                        if cleaned[j] == quote:
+                        if cleaned[i] == '"':
+                            i += 1
                             break
-                        j += 1
-                    i = j
+                        i += 1
                     continue
-                if c in open_chars:
+                if c == "'":
+                    i += 1
+                    while i < length:
+                        if cleaned[i] == '\\':
+                            i += 2
+                            continue
+                        if cleaned[i] == "'":
+                            i += 1
+                            break
+                        i += 1
+                    continue
+                if c == '{':
                     stack.append(c)
-                elif c in open_chars.values():
-                    if not stack:
-                        break
-                    last = stack[-1]
-                    if open_chars.get(last) == c:
+                elif c == '}':
+                    if stack:
                         stack.pop()
-                    else:
-                        stack.pop()
-                if not stack:
-                    candidate = cleaned[start_idx:i + 1]
-                    candidate = candidate.strip()
-                    try:
-                        parsed = json.loads(candidate)
-                        logger.debug("_extract_json: successfully parsed candidate starting at %d", start_idx)
+                i += 1
+            if not stack:
+                candidate = cleaned[start_idx:i]
+                candidate = candidate.strip()
+                try:
+                    parsed = json.loads(candidate)
+                    logger.debug("_extract_json: successfully parsed candidate starting at %d", start_idx)
+                    if isinstance(parsed, dict):
                         return parsed
-                    except json.JSONDecodeError:
-                        break
+                    continue
+                except json.JSONDecodeError:
+                    continue
 
         if "'" in cleaned and '"' not in cleaned:
             coerced = cleaned.replace("'", '"')
             try:
-                return json.loads(coerced)
+                parsed = json.loads(coerced)
+                if isinstance(parsed, dict):
+                    return parsed
             except json.JSONDecodeError:
                 logger.debug("_extract_json: coercion with single->double quotes failed")
 
-        logger.debug('_extract_json: No parsable JSON object found in text')
+        logger.debug('_extract_json: No complete JSON object found in text')
         return None
