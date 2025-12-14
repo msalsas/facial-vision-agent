@@ -9,65 +9,67 @@ class AnalysisPrompts:
     @staticmethod
     def get_face_validation_prompt() -> str:
         return """
-        Analyze this image and determine if it contains a human face.
-        Respond with either 'Y' or 'N'.
-        Return only the letter; do NOT add other explanation.
+        Your task is to analyze the image and determine whether it contains at least one visible human face.
+        
+        Follow these strict rules:
+        
+        1. If the image contains a human face — even partially — respond ONLY with the single letter: Y
+        2. If the image does NOT contain a human face of any kind, respond ONLY with the single letter: N
+        3. Do NOT add explanations, punctuation, extra text, line breaks, or whitespace.
+        4. Do NOT output words, sentences, or JSON. Output ONLY a single uppercase letter: Y or N.
+        
+        Your entire reply must consist of exactly one character: Y or N.
         """
 
     @staticmethod
     def get_comprehensive_analysis_system_prompt() -> str:
         return """
-        You are an assistant that MUST reply with a single JSON object only, and nothing else (no explanation, no markdown/code fences).
-        The JSON MUST follow this minimal schema:
-        {
-            "facial_analysis": {
-                "face_shape": "oval/round/square/heart/oblong",
-                "forehead": "high/medium/low",
-                "eyebrows": "thick/thin/arched/straight",
-                "eyes": "large/small, round/almond shaped",
-                "nose": "straight/curved, large/small",
-                "cheeks": "high/prominent/flat",
-                "mouth": "full/thin, wide/narrow",
-                "chin": "pointed/rounded/square",
-                "jawline": "strong/soft/defined",
-                "facial_proportions": {
-                    "face_width_to_height_ratio": 0.0,
-                    "forehead_to_face_height_ratio": 0.0,
-                    "eye_width_to_face_width_ratio": 0.0,
-                    "inter_eye_to_face_width_ratio": 0.0,
-                    "nose_width_to_face_width_ratio": 0.0,
-                    "nose_height_to_face_height_ratio": 0.0,
-                    "mouth_width_to_face_width_ratio": 0.0,
-                    "chin_width_to_face_width_ratio": 0.0,
-                    "eye_to_nose_distance_ratio": 0.0,
-                    "nose_to_mouth_distance_ratio": 0.0
-                },
-                "prominent_features": ["feature1", "feature2", "feature3"]
-            },
-            "hair_analysis": {
-                "type": "straight/wavy/curly/coily",
-                "length": "short/medium/long",
-                "color": "color description",
-                "density": "thin/medium/thick",
-                "condition": "healthy/dry/damaged"
-            },
-            "confidence_metrics": {
-                "face_detection": 0.0,
-                "hair_analysis": 0.0,
-                "overall": 0.0
-            }
-        }
-        All values must be set. Do not leave any fields empty.
-        IMPORTANT: Do NOT return a JSON array or multiple JSON objects. If you would otherwise return multiple items, choose the single best representation and return exactly one JSON object. The response MUST start with '{' and end with '}'.
-        If you cannot produce valid JSON, return an empty JSON object: {}
+        You are a highly specialized assistant focused on detailed visual analysis.
+        
+        Your task is to describe facial features and hair characteristics with precision, neutrality, and objectivity. You must base all statements exclusively on what can be visually inferred from the image. Do not guess personality, emotions, or traits not supported by visible evidence.
+        
+        Provide a structured, exhaustive textual description that includes:
+        
+        1. FACIAL SHAPE & STRUCTURE
+           - Face shape (general form)
+           - Forehead (height, width, slope)
+           - Eyebrows (thickness, arch, separation)
+           - Eyes (size, shape, spacing)
+           - Nose (shape, width, bridge, tip)
+           - Cheeks (fullness, prominence)
+           - Mouth and lips (shape, thickness, width)
+           - Chin (shape)
+           - Jawline (definition, angle)
+        
+        2. FACIAL PROPORTIONS
+           - Relative distances between features  
+           - Vertical and horizontal balance  
+           - Any noticeable symmetry or asymmetry
+           - Numerical ratios of several facial dimensions
+        
+        3. PROMINENT OR DISTINCTIVE FEATURES
+           - Any visually striking or defining traits
+        
+        4. HAIR ANALYSIS
+           - Hair type (straight, wavy, curly, coily)
+           - Density and volume
+           - Length
+           - Color and tones
+           - Condition (healthy, dry, damaged)
+           - Overall shape or styling pattern
+        
+        STYLE REQUIREMENTS:
+        - Use clear, natural language (full sentences or structured paragraphs).
+        - Be precise and thorough.
+        - Do NOT provide any JSON, lists of values, or categorical labels unless naturally needed.
+        - Do NOT include opinions, compliments, or speculation.
+        - Focus purely on visual physical description and proportions.
         """
 
     @staticmethod
     def get_comprehensive_analysis_prompt() -> str:
         return """
-        Analyze this person's facial physiognomy and features in detail, including hair characteristics.
-
-        Return ONLY a single JSON object with the system prompt schema provided.
+        Analyze this person's facial features and hair in detail. Provide a complete, objective visual description following the guidelines in the system prompt.
         """
 
     @staticmethod

@@ -21,8 +21,8 @@ def test_accepts_base64_image_payload():
         response = agent.process(task)
 
         assert response.success
-        assert "detected_features" in response.data
-        assert response.data["detected_features"]["facial_analysis"]["face_shape"] == "round"
+        assert "analysis" in response.data
+        assert response.data["analysis"]["facial_analysis"]["face_shape"] == "round"
     finally:
         agent._validate_face_presence = original_validate
         agent._call_vision_llm = original_llm

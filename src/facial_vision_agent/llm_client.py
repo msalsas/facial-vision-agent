@@ -2,7 +2,6 @@ from time import sleep
 from typing import Dict, Any, Optional
 import requests
 import json
-import re
 import logging
 from .prompts import AnalysisPrompts
 from requests import Session, exceptions as req_exceptions
@@ -24,7 +23,7 @@ class VisionLLMClient:
             "Content-Type": "application/json",
         })
 
-    def call_vision_llm(self, base64_image: str, model: str = "meta-llama/llama-3.2-11b-vision-instruct") -> Dict[str, Any]:
+    def call_vision_llm(self, base64_image: str, model: str = "meta-llama/llama-3.2-11b-vision-instruct") -> str:
         """
         Call vision-capable LLM for analysis.
         """
@@ -52,38 +51,9 @@ class VisionLLMClient:
             if not content:
                 raise ValueError("No content found in the result")
 
-            logger.debug("call_vision_llm: raw content=%s", content)
-            parsed = self._extract_json(content)
-            if parsed is not None:
-                return parsed
+            logger.debug("call_vision_llm: content=%s", content)
 
-            logger.warning("call_vision_llm: initial response had no JSON, attempting one repair pass")
-            repair_prompt = self.prompts.get_comprehensive_analysis_retry_prompt()
-
-            repair_messages = [
-                {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-                {"role": "assistant", "content": [{"type": "text", "text": str(content)}]},
-                {"role": "user", "content": [{"type": "text", "text": repair_prompt}]},
-            ]
-
-            repair_payload = {
-                "model": model,
-                "messages": repair_messages,
-                "max_tokens": 1000,
-                "temperature": 0.0,
-            }
-
-            repair_result = self._post(repair_payload, timeout=20)
-            if not repair_result:
-                raise ValueError("No result returned from LLM on repair attempt")
-
-            repair_content = self._safe_get_content(repair_result)
-            logger.debug("call_vision_llm: repair raw content=%s", repair_content)
-            parsed = self._extract_json(repair_content)
-            if parsed is not None:
-                return parsed
-
-            raise ValueError("Parsed content is None after repair attempt")
+            return content
 
         except Exception:
             logger.exception("Vision LLM call failed")
@@ -134,7 +104,7 @@ class VisionLLMClient:
                 if retry > 2:
                     logger.debug("validate_face_presence: exceeded max retries on 'safe' response, returning False")
                     return False
-                return self.validate_face_presence(base64_image, ++retry)
+                return self.validate_face_presence(base64_image, retry + 1)
             else:
                 return False
 
@@ -192,85 +162,3 @@ class VisionLLMClient:
         except Exception:
             return None
 
-    def _extract_json(self, text: str) -> Optional[Dict[str, Any]]:
-        """
-        Extract JSON from text, handling cases where LLM adds extra text.
-        """
-        if not isinstance(text, str):
-            return None
-
-        cleaned = re.sub(r"```(?:json)?\n?", "", text, flags=re.IGNORECASE)
-        cleaned = re.sub(r"```\s*$", "", cleaned, flags=re.MULTILINE)
-        cleaned = cleaned.strip()
-        logger.debug("_extract_json: cleaned text=%s", cleaned)
-
-        try:
-            parsed = json.loads(cleaned)
-            if isinstance(parsed, dict):
-                return parsed
-            return None
-        except json.JSONDecodeError:
-            pass
-
-        length = len(cleaned)
-        open_chars = {'{': '}', '[': ']'}
-
-        for start_idx, ch in enumerate(cleaned):
-            if ch != '{':
-                continue
-            stack = [ch]
-            i = start_idx + 1
-            while i < length and stack:
-                c = cleaned[i]
-                # Skip over double-quoted strings
-                if c == '"':
-                    i += 1
-                    while i < length:
-                        if cleaned[i] == '\\':
-                            i += 2
-                            continue
-                        if cleaned[i] == '"':
-                            i += 1
-                            break
-                        i += 1
-                    continue
-                if c == "'":
-                    i += 1
-                    while i < length:
-                        if cleaned[i] == '\\':
-                            i += 2
-                            continue
-                        if cleaned[i] == "'":
-                            i += 1
-                            break
-                        i += 1
-                    continue
-                if c == '{':
-                    stack.append(c)
-                elif c == '}':
-                    if stack:
-                        stack.pop()
-                i += 1
-            if not stack:
-                candidate = cleaned[start_idx:i]
-                candidate = candidate.strip()
-                try:
-                    parsed = json.loads(candidate)
-                    logger.debug("_extract_json: successfully parsed candidate starting at %d", start_idx)
-                    if isinstance(parsed, dict):
-                        return parsed
-                    continue
-                except json.JSONDecodeError:
-                    continue
-
-        if "'" in cleaned and '"' not in cleaned:
-            coerced = cleaned.replace("'", '"')
-            try:
-                parsed = json.loads(coerced)
-                if isinstance(parsed, dict):
-                    return parsed
-            except json.JSONDecodeError:
-                logger.debug("_extract_json: coercion with single->double quotes failed")
-
-        logger.debug('_extract_json: No complete JSON object found in text')
-        return None

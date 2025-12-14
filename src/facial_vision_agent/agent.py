@@ -1,9 +1,6 @@
 from agent_core_framework import BaseAgent, AgentTask, AgentResponse
 from typing import Dict, Any, Optional
 import os
-import base64
-import re
-import json
 from .llm_client import VisionLLMClient
 from .utils import ImageUtils
 import logging
@@ -19,8 +16,6 @@ class FacialVisionAgent(BaseAgent):
         super().__init__("FacialVision", "1.0.0")
         self.supported_tasks = [
             "analyze_image",
-            "detect_facial_features",
-            "analyze_hair_characteristics",
         ]
 
         self.api_key = openrouter_api_key or os.getenv("OPENROUTER_API_KEY")
@@ -55,32 +50,17 @@ class FacialVisionAgent(BaseAgent):
                 success=False, error=f"Vision analysis error: {str(e)}", agent_name=self.name
             )
 
-    def _call_vision_llm(self, base64_image: str) -> Dict[str, Any]:
+    def _call_vision_llm(self, base64_image: str) -> str:
         return self.llm_client.call_vision_llm(base64_image)
 
     def _validate_face_presence(self, base64_image: str) -> bool:
         return self.llm_client.validate_face_presence(base64_image)
-
-    def _extract_json(self, text: str) -> Optional[Dict[str, Any]]:
-        # Try to find JSON object in the text
-        json_match = re.search(r'{.*}', text, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group())
-            except json.JSONDecodeError:
-                pass
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return None
 
     def get_info(self) -> Dict[str, Any]:
         base_info = super().get_info()
         base_info.update(
             {
                 "capabilities": [
-                    "facial_feature_detection",
-                    "hair_characteristic_analysis",
                     "image_analysis",
                 ],
                 "output_type": "feature_extraction",
@@ -117,9 +97,9 @@ class FacialVisionAgent(BaseAgent):
         image_path = payload.get("image_path")
         base64_image = payload.get("base64_image")
 
-        def process_comprehensive_analysis(base64_image: str) -> AgentResponse:
+        def process_comprehensive_analysis(_base64_image: str) -> AgentResponse:
             try:
-                analysis_result = self._call_vision_llm(base64_image)
+                analysis_result = self._call_vision_llm(_base64_image)
             except Exception as e:
                 # Surface a clear error to the caller when LLM analysis fails
                 return AgentResponse(success=False, error=f"Vision LLM analysis failed: {str(e)}", agent_name=self.name)
@@ -127,24 +107,11 @@ class FacialVisionAgent(BaseAgent):
             if task_type == "analyze_image":
                 return AgentResponse(
                     success=True,
-                    data={
-                        "detected_features": analysis_result,
-                        "analysis_confidence": analysis_result.get("confidence_metrics", {}).get("overall", 0.7),
+                    data={"analysis": analysis_result,
                         "image_processed": True,
                     },
                     agent_name=self.name,
                 )
-            elif task_type == "detect_facial_features":
-                return AgentResponse(
-                    success=True,
-                    data={"facial_analysis": analysis_result.get("facial_analysis", {}), "features_detected": True},
-                    agent_name=self.name,
-                )
-            elif task_type == "analyze_hair_characteristics":
-                return AgentResponse(
-                    success=True,
-                    data={"hair_analysis": analysis_result.get("hair_analysis", {}), "hair_characteristics_detected": True},
-                    agent_name=self.name,
-                )
+            return AgentResponse(success=False, error=f"Unsupported analysis task: {task_type}", agent_name=self.name)
 
         return self._process_image_with_validation(image_path=image_path, base64_image=base64_image, processing_function=process_comprehensive_analysis)
